@@ -1,0 +1,47 @@
+name: Run ROMDemangler
+
+on:
+  workflow_dispatch:
+    inputs:
+      rom_url:
+        description: 'Direct download URL to your .z64 file'
+        required: true
+      actors:
+        description: 'Actors (all, custom, or vanilla)'
+        required: true
+        default: 'all'
+
+jobs:
+  demangle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build ROMDemangler
+        run: make -j12
+
+      - name: Download ROM Temporarily
+        run: curl -L "${{ github.event.inputs.rom_url }}" -o input.z64
+
+      - name: Export All Levels (IDs 1-65)
+        run: |
+          BIN=$(find build -maxdepth 2 -type f -executable | head -n 1)
+          echo "Running binary: $BIN"
+          "$BIN" --rom input.z64 --levels $(seq -s, 1 65) --actors "${{ github.event.inputs.actors }}"
+
+      - name: Remove ROM Before Packaging
+        run: rm -f input.z64
+
+      - name: Upload Exported Mod
+        uses: actions/upload-artifact@v4
+        with:
+          name: sm64coopdx-mod
+          path: |
+            *
+            !src/**
+            !include/**
+            !gui/**
+            !tools/**
+            !build/**
+            !.git/**
